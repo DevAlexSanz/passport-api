@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 
 import { Server } from '@server/server';
+import { env } from '@config/config';
 
 const bootstrap = () => {
   try {
-    const port = Number(process.env.PORT ?? 8080);
-    const server = new Server(port, 'v1');
+    const server = new Server(env.PORT, 'api');
 
     server.start();
   } catch (error) {
