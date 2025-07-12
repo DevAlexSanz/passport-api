@@ -1,6 +1,7 @@
 import { Application, Request, Response } from 'express';
 import { jsonResponse } from '@utils/json-response';
 import { createApp } from './app';
+import logger from '@config/logger';
 
 export class Server {
   private readonly app: Application;
@@ -21,11 +22,11 @@ export class Server {
     });
   }
 
-  public start(): void {
+  start(): void {
     this.healthRoute();
 
     this.app.listen(this.port, () => {
-      console.log(`✔️  Server listening and running on port: ${this.port}`);
+      logger.info(`✔️  Server listening and running on port: ${this.port}`);
     });
   }
 }

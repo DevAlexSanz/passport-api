@@ -1,7 +1,7 @@
+import { injectable } from 'tsyringe';
+import { Role } from '@appTypes/Role';
 import { User } from 'generated/prisma';
 import { prisma } from '@database/prisma';
-import { injectable } from 'tsyringe';
-import { CreateUserDto } from './dto/create-user.dto';
 
 @injectable()
 export class UserRepository {
@@ -9,11 +9,22 @@ export class UserRepository {
     return prisma.user.findMany();
   }
 
-  async create(payload: CreateUserDto): Promise<User> {
+  async create(payload: {
+    email: string;
+    password: string;
+    role: Role;
+    codeVerification: number;
+  }): Promise<User> {
     return prisma.user.create({
       data: {
         ...payload,
       },
+    });
+  }
+
+  async findOne(where: { id?: string; email?: string }): Promise<User | null> {
+    return prisma.user.findFirst({
+      where,
     });
   }
 }

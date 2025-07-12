@@ -14,18 +14,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  email     String   @unique
-  password  String
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 enum Role {
+  SUPER_ADMIN
   ADMIN
   CUSTOMER
   USER
 }
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  DELETED
+}
+
+model User {
+  id               String     @id @default(cuid())
+  email            String     @unique
+  password         String
+  codeVerification Int?
+  isVerified       Boolean    @default(false)
+  role             Role
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  pharmacy         Pharmacy?
+  employee         Employee?
+}
+
+model Pharmacy {
+  id           String     @id @default(cuid())
+  name         String
+  description  String?
+  profilePhoto String
+  coverPhoto   String
+  address      String?
+  phone        String
+  email        String?
+  status       Status
+  userId       String     @unique
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  employees    Employee[]
+  user         User       @relation(fields: [userId], references: [id])
+}
+
+model Employee {
+  id             String     @id @default(cuid())
+  firstName      String
+  secondName     String?
+  thirdName      String?
+  firstLastname  String
+  secondLastname String?
+  dui            String
+  numberPhone    String
+  email          String?
+  address        String?
+  status         Status
+  userId         String     @unique
+  pharmacyId     String     @unique
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  user           User       @relation(fields: [userId], references: [id])
+  pharmacy       Pharmacy   @relation(fields: [pharmacyId], references: [id])
+}
+

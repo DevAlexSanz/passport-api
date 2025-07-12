@@ -2,6 +2,7 @@ import 'reflect-metadata';
 
 import { Server } from '@server/server';
 import { env } from '@config/config';
+import logger from '@config/logger';
 
 const bootstrap = () => {
   try {
@@ -9,7 +10,7 @@ const bootstrap = () => {
 
     server.start();
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   }
 };
 bootstrap();
