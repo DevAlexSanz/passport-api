@@ -3,11 +3,12 @@ import { z } from 'zod';
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 
-dotenv.config({path: `.env.${nodeEnv}`});
+dotenv.config({ path: `.env.${nodeEnv}` });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']),
   PORT: z.string().default('3000').transform(Number),
+  TOKEN_SECRET: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);

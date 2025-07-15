@@ -2,11 +2,14 @@ import { inject, injectable } from 'tsyringe';
 import { UserRepository } from '@features/user/user.repository';
 import { PharmacyRepository } from '@features/pharmacy/pharmacy.repository';
 import { ConflictException } from '@exceptions/conflict-exception';
-import { hashPassword } from '@utils/bcrypt';
+import { comparePassword, hashPassword } from '@utils/bcrypt';
 import { CreateUser } from '@appTypes/User';
 import { Role } from '@shared/constants/Role';
 import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
 import { generateCodeVerified } from '@utils/generate-code-verified';
+import { NotFoundException } from '@shared/exceptions/not-found.exception';
+import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
+import { generateToken } from '@shared/utils/jwt';
 
 @injectable()
 export class AuthService {
@@ -69,5 +72,46 @@ export class AuthService {
     });
 
     return codeVerification;
+  }
+
+  async authenticateUser({
+    email,
+    password,
+  }: {
+    email: string;
+    password: string;
+  }) {
+    const user = await this.userRepository.findOne({ email });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const isPasswordValid = await comparePassword(password, user.password);
+
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid creadentials');
+
+    const { accessToken, refreshToken } = generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async getMe(id: string) {
+    const user = await this.userRepository.findOne({ id });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      isVerified: user.isVerified,
+    };
   }
 }

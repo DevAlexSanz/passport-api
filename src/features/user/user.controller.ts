@@ -8,7 +8,7 @@ import logger from '@config/logger';
 export class UserController {
   constructor(@inject(UserService) private readonly userService: UserService) {}
 
-  async getAllUsers(_request: Request, response: Response) {
+  getAllUsers = async (_request: Request, response: Response) => {
     try {
       const users = await this.userService.findAll();
 
@@ -27,5 +27,5 @@ export class UserController {
         success: false,
       });
     }
-  }
+  };
 }

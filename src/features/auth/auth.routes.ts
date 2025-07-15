@@ -3,6 +3,7 @@ import { container } from 'tsyringe';
 import { AuthController } from '@features/auth/auth.controller';
 import { validateDto } from '@middlewares/validate-dto';
 import { CreateUserDTO } from '@features/auth/dto/create-user.dto';
+import { validateToken } from '@shared/middlewares/validate-token';
 
 const router = Router();
 
@@ -17,5 +18,9 @@ router.post(
   '/register/with-pharmacy',
   authController.registerAdminWithPharmacy
 );
+
+router.post('/login', validateDto(CreateUserDTO, 'body'), authController.login);
+
+router.get('/me', validateToken, authController.getMe);
 
 export default router;

@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import { User } from 'generated/prisma';
+import { User } from '@generated/prisma';
 import { UserRepository } from './user.repository';
 
 @injectable()

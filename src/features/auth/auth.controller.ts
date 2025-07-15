@@ -6,12 +6,14 @@ import { ConflictException } from '@exceptions/conflict-exception';
 import { CreateUserDTO } from './dto/create-user.dto';
 import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
 import logger from '@config/logger';
+import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
+import { NotFoundException } from '@shared/exceptions/not-found.exception';
 
 @injectable()
 export class AuthController {
   constructor(@inject(AuthService) private readonly authService: AuthService) {}
 
-  async registerAdminWithPharmacy(request: Request, response: Response) {
+  registerAdminWithPharmacy = async (request: Request, response: Response) => {
     const dto: CreateAdminWithPharmacyDTO = request.body;
 
     try {
@@ -43,9 +45,9 @@ export class AuthController {
         success: false,
       });
     }
-  }
+  };
 
-  async registerUser(request: Request, response: Response) {
+  registerUser = async (request: Request, response: Response) => {
     const { email, password }: CreateUserDTO = request.body;
 
     try {
@@ -79,5 +81,71 @@ export class AuthController {
         success: false,
       });
     }
-  }
+  };
+
+  login = async (request: Request, response: Response) => {
+    const { email, password } = request.body;
+
+    try {
+      const { accessToken, refreshToken } =
+        await this.authService.authenticateUser({ email, password });
+
+      jsonResponse(response, {
+        message: 'Logged in successfully',
+        statusCode: 200,
+        success: true,
+        data: {
+          accessToken,
+          refreshToken,
+        },
+      });
+    } catch (error) {
+      logger.error(error);
+
+      if (error instanceof UnauthorizedException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
+      jsonResponse(response, {
+        message: 'Internal Server Error',
+        statusCode: 500,
+        success: false,
+      });
+    }
+  };
+
+  getMe = async (request: Request, response: Response) => {
+    const userId = request.user?.id;
+
+    try {
+      const user = await this.authService.getMe(userId as string);
+
+      jsonResponse(response, {
+        message: 'User retrieved successfully',
+        statusCode: 200,
+        success: true,
+        data: user,
+      });
+    } catch (error) {
+      logger.error(error);
+
+      if (error instanceof NotFoundException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
+      jsonResponse(response, {
+        message: 'Internal Server Error',
+        statusCode: 500,
+        success: false,
+      });
+    }
+  };
 }

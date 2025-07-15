@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import { Role } from '@appTypes/Role';
-import { User } from 'generated/prisma';
+import { User } from '@generated/prisma';
 import { prisma } from '@database/prisma';
 
 @injectable()
