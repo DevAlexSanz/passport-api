@@ -6,7 +6,7 @@
     "start:prod": "dotenv -e .env.production -- node build/main.js",
     "start:dev": "dotenv -e .env.development -- ts-node-dev -r tsconfig-paths/register --respawn src/main.ts",
     "start:debug": "dotenv -e .env.development -- ts-node-dev -r tsconfig-paths/register --inspect --respawn src/main.ts",
-    "build": "rimraf build && npm run db:generate && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && cpx \"src/database/generated/**/*\" build/database/generated",
+    "build": "npx rimraf build && npm run db:generate && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && npx cpx \"src/database/generated/**/*\" build/database/generated",
     "db:generate": "prisma generate",
     "db:migrate:dev": "dotenv -e .env.development -- prisma migrate dev -n",
     "db:migrate:deploy:dev": "dotenv -e .env.development -- prisma migrate deploy",
