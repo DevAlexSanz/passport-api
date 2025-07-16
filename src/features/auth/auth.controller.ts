@@ -8,6 +8,7 @@ import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
 import logger from '@config/logger';
 import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 import { NotFoundException } from '@shared/exceptions/not-found.exception';
+import { commonOptions } from '@config/cookie';
 
 @injectable()
 export class AuthController {
@@ -90,17 +91,31 @@ export class AuthController {
       const { accessToken, refreshToken } =
         await this.authService.authenticateUser({ email, password });
 
+      response.cookie('accessToken', accessToken, {
+        ...commonOptions,
+        maxAge: 1000 * 60 * 15,
+      });
+
+      response.cookie('refreshToken', refreshToken, {
+        ...commonOptions,
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+      });
+
       jsonResponse(response, {
         message: 'Logged in successfully',
         statusCode: 200,
         success: true,
-        data: {
-          accessToken,
-          refreshToken,
-        },
       });
     } catch (error) {
       logger.error(error);
+
+      if (error instanceof NotFoundException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
 
       if (error instanceof UnauthorizedException) {
         return jsonResponse(response, {

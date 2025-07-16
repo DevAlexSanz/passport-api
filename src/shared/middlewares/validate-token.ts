@@ -8,8 +8,7 @@ export const validateToken = (
   response: Response,
   next: NextFunction
 ) => {
-  const authHeader = request.headers['authorization'];
-  const token = authHeader?.split(' ')[1];
+  const token = request.cookies.accessToken;
 
   if (!token) {
     return jsonResponse(response, {
@@ -19,7 +18,7 @@ export const validateToken = (
     });
   }
 
-  jwt.verify(token, env.TOKEN_SECRET, (err, decoded: any) => {
+  jwt.verify(token, env.TOKEN_SECRET, (err: any, decoded: any) => {
     if (err) {
       return jsonResponse(response, {
         message: 'Invalid token',

@@ -9,6 +9,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']),
   PORT: z.string().default('3000').transform(Number),
   TOKEN_SECRET: z.string(),
+  CORS_WHITELIST: z
+    .string()
+    .transform((val) => val.split(',').map((s) => s.trim()))
+    .pipe(z.array(z.string().url())),
 });
 
 const parsed = envSchema.safeParse(process.env);
