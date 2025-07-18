@@ -23,4 +23,6 @@ router.post('/login', validateDto(CreateUserDTO, 'body'), authController.login);
 
 router.get('/me', validateToken, authController.getMe);
 
+router.post('/verify-account', validateToken, authController.verifyAccount);
+
 export default router;

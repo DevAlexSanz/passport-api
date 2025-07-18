@@ -114,4 +114,20 @@ export class AuthService {
       isVerified: user.isVerified,
     };
   }
+
+  async verifyAccount({ id, code }: { id: string; code: number }) {
+    const user = await this.userRepository.findOne({ id });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.codeVerification !== code)
+      throw new UnauthorizedException('Invalid code');
+
+    user.isVerified = true;
+
+    await this.userRepository.update(user.id, {
+      isVerified: true,
+      codeVerification: null,
+    });
+  }
 }

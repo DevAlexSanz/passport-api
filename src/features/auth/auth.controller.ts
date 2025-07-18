@@ -163,4 +163,46 @@ export class AuthController {
       });
     }
   };
+
+  verifyAccount = async (request: Request, response: Response) => {
+    const userId = request.user?.id;
+    const { codeVerification } = request.body;
+
+    try {
+      await this.authService.verifyAccount({
+        id: userId as string,
+        code: Number(codeVerification),
+      });
+
+      jsonResponse(response, {
+        message: 'User verified successfully',
+        statusCode: 200,
+        success: true,
+      });
+    } catch (error) {
+      logger.error(error);
+
+      if (error instanceof NotFoundException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
+      if (error instanceof UnauthorizedException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
+      jsonResponse(response, {
+        message: 'Internal Server Error',
+        statusCode: 500,
+        success: false,
+      });
+    }
+  };
 }
