@@ -5,11 +5,13 @@ import { ConflictException } from '@exceptions/conflict-exception';
 import { comparePassword, hashPassword } from '@utils/bcrypt';
 import { CreateUser } from '@appTypes/User';
 import { Role } from '@shared/constants/Role';
+import { Role as RoleType } from '@appTypes/Role';
 import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
 import { generateCodeVerified } from '@utils/generate-code-verified';
 import { NotFoundException } from '@shared/exceptions/not-found.exception';
 import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 import { generateToken } from '@shared/utils/jwt';
+import { uploadToCloudinary } from '@shared/utils/cloudinary';
 
 @injectable()
 export class AuthService {
@@ -53,18 +55,29 @@ export class AuthService {
     return codeVerification;
   }
 
-  async registerAdminWithPharmacy(pharmacy: CreateAdminWithPharmacyDTO) {
+  async registerAdminWithPharmacy(
+    pharmacy: CreateAdminWithPharmacyDTO,
+    profilePhoto: Express.Multer.File,
+    coverPhoto: Express.Multer.File
+  ) {
     const { user, codeVerification } = await this.createUser({
       email: pharmacy.email,
       password: pharmacy.password,
       role: Role.ADMIN,
     });
 
+    const profilePhotoUrl = await uploadToCloudinary(
+      profilePhoto,
+      'profile-photos'
+    );
+
+    const coverPhotoUrl = await uploadToCloudinary(coverPhoto, 'cover-photos');
+
     await this.pharmacyRepository.create({
       name: pharmacy.name,
       description: pharmacy.description,
-      profilePhoto: '',
-      coverPhoto: 'coverPhotoUrl',
+      profilePhoto: profilePhotoUrl.secure_url,
+      coverPhoto: coverPhotoUrl.secure_url,
       address: pharmacy.address,
       phone: pharmacy.phone,
       email: pharmacy.email,
@@ -102,10 +115,22 @@ export class AuthService {
     };
   }
 
-  async getMe(id: string) {
+  async getMe(id: string, role: RoleType) {
     const user = await this.userRepository.findOne({ id });
 
     if (!user) throw new NotFoundException('User not found');
+
+    if (role === Role.ADMIN) {
+      const pharmacy = await this.pharmacyRepository.findByUserId(user.id);
+
+      return {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
+        pharmacy,
+      };
+    }
 
     return {
       id: user.id,

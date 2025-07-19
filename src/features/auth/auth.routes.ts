@@ -5,6 +5,8 @@ import { validateDto } from '@middlewares/validate-dto';
 import { CreateUserDTO } from '@features/auth/dto/create-user.dto';
 import { validateAccessToken } from '@shared/middlewares/validate-access-token';
 import { validateRefreshToken } from '@shared/middlewares/validate-refresh-token';
+import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
+import { upload } from '@middlewares/multer';
 
 const router = Router();
 
@@ -15,8 +17,14 @@ router.post(
   validateDto(CreateUserDTO, 'body'),
   authController.registerUser
 );
+
 router.post(
-  '/register/with-pharmacy',
+  '/register/pharmacy',
+  upload.fields([
+    { name: 'profilePhoto', maxCount: 1 },
+    { name: 'coverPhoto', maxCount: 1 },
+  ]),
+  validateDto(CreateAdminWithPharmacyDTO, 'body'),
   authController.registerAdminWithPharmacy
 );
 

@@ -14,4 +14,12 @@ export class PharmacyRepository {
       },
     });
   }
+
+  async findByUserId(userId: string) {
+    return await prisma.pharmacy.findFirst({
+      where: {
+        userId,
+      },
+    });
+  }
 }

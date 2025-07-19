@@ -9,6 +9,7 @@ import logger from '@config/logger';
 import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 import { NotFoundException } from '@shared/exceptions/not-found.exception';
 import { commonOptions } from '@config/cookie';
+import { Role } from '@appTypes/Role';
 
 @injectable()
 export class AuthController {
@@ -17,9 +18,28 @@ export class AuthController {
   registerAdminWithPharmacy = async (request: Request, response: Response) => {
     const dto: CreateAdminWithPharmacyDTO = request.body;
 
+    const files = request.files as {
+      profilePhoto?: Express.Multer.File[];
+      coverPhoto?: Express.Multer.File[];
+    };
+
+    if (!files.profilePhoto || !files.coverPhoto) {
+      return jsonResponse(response, {
+        message: 'Both profile and cover photos are required',
+        statusCode: 400,
+        success: false,
+      });
+    }
+
     try {
-      const codeVerification =
-        await this.authService.registerAdminWithPharmacy(dto);
+      const profilePhoto = files.profilePhoto?.[0];
+      const coverPhoto = files.coverPhoto?.[0];
+
+      const codeVerification = await this.authService.registerAdminWithPharmacy(
+        dto,
+        profilePhoto,
+        coverPhoto
+      );
 
       jsonResponse(response, {
         message: `Registered`,
@@ -135,9 +155,13 @@ export class AuthController {
 
   getMe = async (request: Request, response: Response) => {
     const userId = request.user?.id;
+    const userRole = request.user?.role;
 
     try {
-      const user = await this.authService.getMe(userId as string);
+      const user = await this.authService.getMe(
+        userId as string,
+        userRole as Role
+      );
 
       jsonResponse(response, {
         message: 'User retrieved successfully',

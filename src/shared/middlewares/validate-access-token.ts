@@ -2,6 +2,13 @@ import jwt, { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { env } from '@config/config';
 import { jsonResponse } from '@shared/utils/json-response';
+import { Role } from '@shared/types/Role';
+
+interface JwtPayload {
+  id: string;
+  role: Role;
+  email: string;
+}
 
 export const validateAccessToken = (
   request: Request,
@@ -30,9 +37,11 @@ export const validateAccessToken = (
   }
 
   try {
-    const decoded = jwt.verify(token, env.TOKEN_SECRET) as { id?: string };
+    const decoded = jwt.verify(token, env.TOKEN_SECRET) as JwtPayload;
 
-    if (!decoded?.id) {
+    const { id, role, email } = decoded;
+
+    if (!id || !role || !email) {
       return jsonResponse(response, {
         message: 'Invalid token payload',
         statusCode: 403,
@@ -40,7 +49,7 @@ export const validateAccessToken = (
       });
     }
 
-    request.user = { id: decoded.id };
+    request.user = { id, role, email };
     next();
   } catch (error) {
     const errorMessages: Record<

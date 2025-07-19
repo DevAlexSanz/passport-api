@@ -13,6 +13,9 @@ const envSchema = z.object({
     .string()
     .transform((val) => val.split(',').map((s) => s.trim()))
     .pipe(z.array(z.string().url())),
+  CLOUD_NAME: z.string(),
+  API_KEY: z.string(),
+  API_SECRET: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);
