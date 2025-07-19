@@ -205,4 +205,41 @@ export class AuthController {
       });
     }
   };
+
+  refreshAccessToken = async (request: Request, response: Response) => {
+    const userId = request.user?.id;
+
+    try {
+      const { accessToken } = await this.authService.refreshAccessToken(
+        userId as string
+      );
+
+      response.cookie('accessToken', accessToken, {
+        ...commonOptions,
+        maxAge: 1000 * 60 * 15,
+      });
+
+      jsonResponse(response, {
+        message: 'Access token refreshed successfully',
+        statusCode: 200,
+        success: true,
+      });
+    } catch (error) {
+      logger.error(error);
+
+      if (error instanceof NotFoundException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
+      jsonResponse(response, {
+        message: 'Internal Server Error',
+        statusCode: 500,
+        success: false,
+      });
+    }
+  };
 }

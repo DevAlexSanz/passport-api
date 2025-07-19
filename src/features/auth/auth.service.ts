@@ -130,4 +130,20 @@ export class AuthService {
       codeVerification: null,
     });
   }
+
+  async refreshAccessToken(id: string) {
+    const user = await this.userRepository.findOne({ id });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const { accessToken } = generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return {
+      accessToken,
+    };
+  }
 }
