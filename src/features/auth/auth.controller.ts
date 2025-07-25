@@ -266,4 +266,11 @@ export class AuthController {
       });
     }
   };
+
+  logout = async (_request: Request, response: Response) => {
+    response.clearCookie('accessToken');
+    response.clearCookie('refreshToken');
+
+    response.status(204).send();
+  };
 }
