@@ -12,6 +12,7 @@ import { NotFoundException } from '@shared/exceptions/not-found.exception';
 import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 import { generateToken } from '@shared/utils/jwt';
 import { uploadToCloudinary } from '@shared/utils/cloudinary';
+import { sendEmail } from '@utils/nodemailer';
 
 @injectable()
 export class AuthService {
@@ -39,20 +40,24 @@ export class AuthService {
       codeVerification,
     });
 
+    await sendEmail({
+      email,
+      title: 'Verify your DaVida account',
+      description: 'Use the code below to verify your account.',
+      code: codeVerification,
+    });
+
     return {
       user,
-      codeVerification,
     };
   }
 
   async registerUser({ email, password }: { email: string; password: string }) {
-    const { codeVerification } = await this.createUser({
+    await this.createUser({
       email,
       password,
       role: Role.USER,
     });
-
-    return codeVerification;
   }
 
   async registerAdminWithPharmacy(
@@ -60,7 +65,7 @@ export class AuthService {
     profilePhoto: Express.Multer.File,
     coverPhoto: Express.Multer.File
   ) {
-    const { user, codeVerification } = await this.createUser({
+    const { user } = await this.createUser({
       email: pharmacy.email,
       password: pharmacy.password,
       role: Role.ADMIN,
@@ -83,8 +88,6 @@ export class AuthService {
       email: pharmacy.email,
       userId: user.id,
     });
-
-    return codeVerification;
   }
 
   async authenticateUser({
@@ -153,6 +156,12 @@ export class AuthService {
     await this.userRepository.update(user.id, {
       isVerified: true,
       codeVerification: null,
+    });
+
+    await sendEmail({
+      email: user.email,
+      title: 'Your account has been verified!',
+      description: 'You now have full access to DaVida.',
     });
   }
 

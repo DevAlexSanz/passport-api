@@ -16,6 +16,8 @@ const envSchema = z.object({
   CLOUD_NAME: z.string(),
   API_KEY: z.string(),
   API_SECRET: z.string(),
+  GMAIL_USER: z.string(),
+  GMAIL_PASSWORD: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -35,7 +35,7 @@ export class AuthController {
       const profilePhoto = files.profilePhoto?.[0];
       const coverPhoto = files.coverPhoto?.[0];
 
-      const codeVerification = await this.authService.registerAdminWithPharmacy(
+      await this.authService.registerAdminWithPharmacy(
         dto,
         profilePhoto,
         coverPhoto
@@ -45,9 +45,6 @@ export class AuthController {
         message: `Registered`,
         statusCode: 201,
         success: true,
-        data: {
-          codeVerification,
-        },
       });
     } catch (error) {
       logger.error(error);
@@ -72,7 +69,7 @@ export class AuthController {
     const { email, password }: CreateUserDTO = request.body;
 
     try {
-      const codeVerification = await this.authService.registerUser({
+      await this.authService.registerUser({
         email,
         password,
       });
@@ -81,9 +78,6 @@ export class AuthController {
         message: 'Registered',
         statusCode: 201,
         success: true,
-        data: {
-          codeVerification,
-        },
       });
     } catch (error) {
       logger.error(error);
