@@ -1,18 +1,24 @@
 import { inject, injectable } from 'tsyringe';
 import { UserRepository } from '@features/user/user.repository';
 import { PharmacyRepository } from '@features/pharmacy/pharmacy.repository';
-import { ConflictException } from '@exceptions/conflict-exception';
+import { ConflictException } from '@exceptions/conflict.exception';
 import { comparePassword, hashPassword } from '@utils/bcrypt';
 import { CreateUser } from '@appTypes/User';
 import { Role } from '@shared/constants/Role';
 import { Role as RoleType } from '@appTypes/Role';
 import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
 import { generateCodeVerified } from '@utils/generate-code-verified';
+import { ForbiddenException } from '@shared/exceptions/forbidden.exception';
 import { NotFoundException } from '@shared/exceptions/not-found.exception';
 import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 import { generateToken } from '@shared/utils/jwt';
 import { uploadToCloudinary } from '@shared/utils/cloudinary';
 import { sendEmail } from '@utils/nodemailer';
+import {
+  getVerificationCodeExpiry,
+  isExpired,
+} from '@utils/getVerificationCodeExpiry';
+import { TooManyRequestsException } from '@exceptions/too-many-requests.exception';
 
 @injectable()
 export class AuthService {
@@ -21,6 +27,16 @@ export class AuthService {
     @inject(PharmacyRepository)
     private readonly pharmacyRepository: PharmacyRepository
   ) {}
+
+  private generateCodeVerification() {
+    const codeVerification = generateCodeVerified();
+    const codeVerificationExpiresAt = getVerificationCodeExpiry();
+
+    return {
+      codeVerification,
+      codeVerificationExpiresAt,
+    };
+  }
 
   private async createUser({ email, password, role }: CreateUser) {
     const userExists = await this.userRepository.findOne({
@@ -31,13 +47,15 @@ export class AuthService {
 
     const hashedPassword = await hashPassword(password);
 
-    const codeVerification = generateCodeVerified();
+    const { codeVerification, codeVerificationExpiresAt } =
+      this.generateCodeVerification();
 
     const user = await this.userRepository.create({
       email,
       password: hashedPassword,
       role,
       codeVerification,
+      codeVerificationExpiresAt,
     });
 
     await sendEmail({
@@ -148,10 +166,18 @@ export class AuthService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    if (user.codeVerification !== code)
-      throw new UnauthorizedException('Invalid code');
+    if (!user.codeVerificationExpiresAt) {
+      throw new ForbiddenException('Verification expiration not set');
+    }
 
-    user.isVerified = true;
+    if (isExpired(user.codeVerificationExpiresAt)) {
+      throw new ForbiddenException(
+        'The verification code you entered is incorrect or has expired. Please request a new one.'
+      );
+    }
+
+    if (user.codeVerification !== code)
+      throw new ForbiddenException('Invalid code');
 
     await this.userRepository.update(user.id, {
       isVerified: true,
@@ -162,6 +188,47 @@ export class AuthService {
       email: user.email,
       title: 'Your account has been verified!',
       description: 'You now have full access to DaVida.',
+    });
+  }
+
+  async resendCodeVerification(id: string) {
+    const user = await this.userRepository.findOne({ id });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.isVerified) throw new ConflictException('Already verified');
+
+    const now = new Date();
+
+    if (
+      user.codeVerificationExpiresAt &&
+      user.codeVerificationExpiresAt > now
+    ) {
+      const msRemaining =
+        user.codeVerificationExpiresAt.getTime() - now.getTime();
+
+      const minutes = Math.floor(msRemaining / 60000);
+      const seconds = Math.floor((msRemaining % 60000) / 1000);
+
+      throw new TooManyRequestsException(
+        `You must wait before requesting another verification code. Time Remaining: ${minutes}m ${seconds}s.`
+      );
+    }
+
+    const { codeVerification, codeVerificationExpiresAt } =
+      this.generateCodeVerification();
+
+    await this.userRepository.update(id, {
+      codeVerification,
+      codeVerificationExpiresAt,
+    });
+
+    await sendEmail({
+      email: user.email,
+      title: 'Here’s your new DaVida code',
+      description:
+        'Use the code below to finish verifying your account. This replaces any previous code.',
+      code: codeVerification,
     });
   }
 

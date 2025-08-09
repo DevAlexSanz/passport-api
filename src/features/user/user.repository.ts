@@ -14,6 +14,7 @@ export class UserRepository {
     password: string;
     role: Role;
     codeVerification: number;
+    codeVerificationExpiresAt: Date;
   }): Promise<User> {
     return prisma.user.create({
       data: {

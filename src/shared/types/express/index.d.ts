@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import { Role } from '../Role';
+import type { File as MulterFile } from 'multer';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -8,5 +9,16 @@ declare module 'express-serve-static-core' {
       role?: Role;
       email?: string;
     };
+
+    file?: MulterFile;
+    files?: MulterFile[] | { [fieldname: string]: MulterFile[] };
+  }
+}
+
+declare global {
+  namespace Express {
+    namespace Multer {
+      interface File extends MulterFile {}
+    }
   }
 }

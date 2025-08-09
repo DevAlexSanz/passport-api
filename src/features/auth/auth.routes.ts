@@ -25,7 +25,7 @@ router.post(
     { name: 'coverPhoto', maxCount: 1 },
   ]),
   validateDto(CreateAdminWithPharmacyDTO, 'body'),
-  authController.registerAdminWithPharmacy
+  authController.registerPharmacy
 );
 
 router.post('/login', validateDto(CreateUserDTO, 'body'), authController.login);
@@ -42,6 +42,12 @@ router.post(
   '/refresh-token',
   validateRefreshToken,
   authController.refreshAccessToken
+);
+
+router.post(
+  '/resend-code',
+  validateRefreshToken,
+  authController.resendCodeVerification
 );
 
 router.post('/logout', authController.logout);

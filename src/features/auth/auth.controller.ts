@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 import { AuthService } from '@features/auth/auth.service';
 import { jsonResponse } from '@utils/json-response';
-import { ConflictException } from '@exceptions/conflict-exception';
+import { ConflictException } from '@exceptions/conflict.exception';
 import { CreateUserDTO } from './dto/create-user.dto';
 import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
 import logger from '@config/logger';
@@ -10,18 +10,26 @@ import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception
 import { NotFoundException } from '@shared/exceptions/not-found.exception';
 import { commonOptions } from '@config/cookie';
 import { Role } from '@appTypes/Role';
+import { TooManyRequestsException } from '@exceptions/too-many-requests.exception';
+import { BadRequestException } from '@exceptions/bad-request.exception';
+import { ForbiddenException } from '@exceptions/forbidden.exception';
 
 @injectable()
 export class AuthController {
   constructor(@inject(AuthService) private readonly authService: AuthService) {}
 
-  registerAdminWithPharmacy = async (request: Request, response: Response) => {
+  registerPharmacy = async (request: Request, response: Response) => {
     const dto: CreateAdminWithPharmacyDTO = request.body;
 
-    const files = request.files as {
-      profilePhoto?: Express.Multer.File[];
-      coverPhoto?: Express.Multer.File[];
-    };
+    if (
+      !request.files ||
+      typeof request.files !== 'object' ||
+      Array.isArray(request.files)
+    ) {
+      throw new BadRequestException('Invalid file upload');
+    }
+
+    const files = request.files;
 
     if (!files.profilePhoto || !files.coverPhoto) {
       return jsonResponse(response, {
@@ -48,6 +56,14 @@ export class AuthController {
       });
     } catch (error) {
       logger.error(error);
+
+      if (error instanceof BadRequestException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
 
       if (error instanceof ConflictException) {
         return jsonResponse(response, {
@@ -208,7 +224,7 @@ export class AuthController {
         });
       }
 
-      if (error instanceof UnauthorizedException) {
+      if (error instanceof ForbiddenException) {
         return jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
@@ -246,6 +262,52 @@ export class AuthController {
       logger.error(error);
 
       if (error instanceof NotFoundException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
+      jsonResponse(response, {
+        message: 'Internal Server Error',
+        statusCode: 500,
+        success: false,
+      });
+    }
+  };
+
+  resendCodeVerification = async (request: Request, response: Response) => {
+    const userId = request.user?.id;
+
+    try {
+      await this.authService.resendCodeVerification(userId as string);
+
+      jsonResponse(response, {
+        message: 'Access token refreshed successfully',
+        statusCode: 200,
+        success: true,
+      });
+    } catch (error) {
+      logger.error(error);
+
+      if (error instanceof NotFoundException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
+      if (error instanceof ConflictException) {
+        return jsonResponse(response, {
+          message: error.message,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
+      if (error instanceof TooManyRequestsException) {
         return jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
