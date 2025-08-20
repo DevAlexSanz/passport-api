@@ -1,50 +1,63 @@
-import jwt from 'jsonwebtoken';
+import jwt, { TokenExpiredError, JsonWebTokenError } from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { env } from '@config/config';
 import { jsonResponse } from '@shared/utils/json-response';
 
+interface JwtPayload {
+  id: string;
+}
+
 export const validateRefreshToken = (
-  request: Request,
-  response: Response,
+  req: Request,
+  res: Response,
   next: NextFunction
 ) => {
-  const token = request.cookies.refreshToken;
+  const token = req.cookies?.refreshToken;
 
   if (!token) {
-    return jsonResponse(response, {
-      message: 'Token required',
+    return jsonResponse(res, {
+      message: 'Authentication required',
       statusCode: 401,
       success: false,
     });
   }
 
   try {
-    jwt.verify(token, env.TOKEN_SECRET, (err: any, decoded: any) => {
-      if (err !== null && err.name === 'TokenExpiredError') {
-        return jsonResponse(response, {
-          message: 'Token has expired',
-          statusCode: 401,
-          success: false,
-        });
-      }
+    const decoded = jwt.verify(token, env.TOKEN_SECRET) as JwtPayload;
 
-      if (err) {
-        return jsonResponse(response, {
-          message: 'Invalid token',
-          statusCode: 403,
-          success: false,
-        });
-      }
+    if (!decoded?.id) {
+      return jsonResponse(res, {
+        message: 'Invalid token payload',
+        statusCode: 403,
+        success: false,
+      });
+    }
 
-      request.user = { id: decoded.id };
+    req.user = {
+      id: decoded.id,
+    };
 
-      next();
-    });
+    return next();
   } catch (error) {
-    console.error('Token verification error:', error);
-    return jsonResponse(response, {
-      message: 'Invalid token',
-      statusCode: 403,
+    if (error instanceof TokenExpiredError) {
+      return jsonResponse(res, {
+        message: 'Session expired',
+        statusCode: 401,
+        success: false,
+      });
+    }
+
+    if (error instanceof JsonWebTokenError) {
+      return jsonResponse(res, {
+        message: 'Invalid token',
+        statusCode: 403,
+        success: false,
+      });
+    }
+
+    return jsonResponse(res, {
+      message: 'Authentication failure',
+      statusCode: 500,
       success: false,
     });
   }

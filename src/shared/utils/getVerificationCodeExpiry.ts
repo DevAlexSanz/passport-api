@@ -1,4 +1,4 @@
-export const getVerificationCodeExpiry = (minutes: number = 10): Date => {
+export const getVerificationCodeExpiry = (minutes: number = 1): Date => {
   const now = new Date();
 
   now.setMinutes(now.getMinutes() + minutes);

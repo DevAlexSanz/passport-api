@@ -123,12 +123,10 @@ export class AuthController {
 
       response.cookie('accessToken', accessToken, {
         ...commonOptions,
-        maxAge: 1000 * 60 * 15,
       });
 
       response.cookie('refreshToken', refreshToken, {
         ...commonOptions,
-        maxAge: 1000 * 60 * 60 * 24 * 7,
       });
 
       jsonResponse(response, {
@@ -250,7 +248,6 @@ export class AuthController {
 
       response.cookie('accessToken', accessToken, {
         ...commonOptions,
-        maxAge: 1000 * 60 * 15,
       });
 
       jsonResponse(response, {

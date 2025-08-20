@@ -46,7 +46,7 @@ router.post(
 
 router.post(
   '/resend-code',
-  validateRefreshToken,
+  validateAccessToken,
   authController.resendCodeVerification
 );
 

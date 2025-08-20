@@ -1,4 +1,4 @@
-import jwt, { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
+import jwt, { TokenExpiredError, JsonWebTokenError } from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { env } from '@config/config';
 import { jsonResponse } from '@shared/utils/json-response';
@@ -11,27 +11,16 @@ interface JwtPayload {
 }
 
 export const validateAccessToken = (
-  request: Request,
-  response: Response,
+  req: Request,
+  res: Response,
   next: NextFunction
 ) => {
-  const token = request.cookies.accessToken;
+  const token = req.cookies?.accessToken;
 
   if (!token) {
-    return jsonResponse(response, {
+    return jsonResponse(res, {
       message: 'Authentication required',
       statusCode: 401,
-      success: false,
-    });
-  }
-
-  if (
-    typeof token !== 'string' ||
-    !/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.?[A-Za-z0-9-_.+/=]*$/.test(token)
-  ) {
-    return jsonResponse(response, {
-      message: 'Malformed token',
-      statusCode: 400,
       success: false,
     });
   }
@@ -39,36 +28,41 @@ export const validateAccessToken = (
   try {
     const decoded = jwt.verify(token, env.TOKEN_SECRET) as JwtPayload;
 
-    const { id, role, email } = decoded;
-
-    if (!id || !role || !email) {
-      return jsonResponse(response, {
+    if (!decoded?.id || !decoded?.role || !decoded?.email) {
+      return jsonResponse(res, {
         message: 'Invalid token payload',
         statusCode: 403,
         success: false,
       });
     }
 
-    request.user = { id, role, email };
-    next();
-  } catch (error) {
-    const errorMessages: Record<
-      string,
-      { message: string; statusCode: number }
-    > = {
-      [TokenExpiredError.name]: { message: 'Session expired', statusCode: 401 },
-      [JsonWebTokenError.name]: { message: 'Invalid token', statusCode: 403 },
+    req.user = {
+      id: decoded.id,
+      role: decoded.role,
+      email: decoded.email,
     };
 
-    const jwtError =
-      error instanceof Error ? error : new Error('Unknown error');
-    const responseError = errorMessages[jwtError.name] || {
+    return next();
+  } catch (error) {
+    if (error instanceof TokenExpiredError) {
+      return jsonResponse(res, {
+        message: 'Session expired',
+        statusCode: 401,
+        success: false,
+      });
+    }
+
+    if (error instanceof JsonWebTokenError) {
+      return jsonResponse(res, {
+        message: 'Invalid token',
+        statusCode: 403,
+        success: false,
+      });
+    }
+
+    return jsonResponse(res, {
       message: 'Authentication failure',
       statusCode: 500,
-    };
-
-    return jsonResponse(response, {
-      ...responseError,
       success: false,
     });
   }
