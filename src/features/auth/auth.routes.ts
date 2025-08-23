@@ -11,6 +11,7 @@ import passport from 'passport';
 import { commonOptions } from '@config/cookie';
 import { jsonResponse } from '@utils/json-response';
 import { generateToken } from '@utils/jwt';
+import { env } from '@config/config';
 
 const router = Router();
 
@@ -57,7 +58,7 @@ router.get(
         ...commonOptions,
       });
 
-      response.redirect('http://localhost:5173/dashboard');
+      response.redirect(`${env.DAVIDA_CLIENT_URL}/dashboard`);
     } catch (err: any) {
       jsonResponse(response, {
         message: 'Error en login con Google',
