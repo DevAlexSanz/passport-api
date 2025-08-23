@@ -117,7 +117,8 @@ export class AuthService {
   }) {
     const user = await this.userRepository.findOne({ email });
 
-    if (!user) throw new NotFoundException('User not found');
+    if (!user || !user.email || !user.password)
+      throw new NotFoundException('User not found or user only with OAuth');
 
     const isPasswordValid = await comparePassword(password, user.password);
 
@@ -164,7 +165,7 @@ export class AuthService {
   async verifyAccount({ id, code }: { id: string; code: number }) {
     const user = await this.userRepository.findOne({ id });
 
-    if (!user) throw new NotFoundException('User not found');
+    if (!user || !user.email) throw new NotFoundException('User not found');
 
     if (!user.codeVerificationExpiresAt) {
       throw new ForbiddenException('Verification expiration not set');
@@ -194,7 +195,8 @@ export class AuthService {
   async resendCodeVerification(id: string) {
     const user = await this.userRepository.findOne({ id });
 
-    if (!user) throw new NotFoundException('User not found');
+    if (!user || !user.email)
+      throw new NotFoundException('User not found or email not set');
 
     if (user.isVerified) throw new ConflictException('Already verified');
 
@@ -235,7 +237,7 @@ export class AuthService {
   async refreshAccessToken(id: string) {
     const user = await this.userRepository.findOne({ id });
 
-    if (!user) throw new NotFoundException('User not found');
+    if (!user || !user.email) throw new NotFoundException('User not found');
 
     const { accessToken } = generateToken({
       id: user.id,

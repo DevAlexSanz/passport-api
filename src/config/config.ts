@@ -18,6 +18,8 @@ const envSchema = z.object({
   API_SECRET: z.string(),
   GMAIL_USER: z.string(),
   GMAIL_PASSWORD: z.string(),
+  GOOGLE_CLIENT_ID: z.string(),
+  GOOGLE_CLIENT_SECRET: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);

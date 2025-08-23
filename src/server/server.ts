@@ -2,6 +2,7 @@ import { Application, Request, Response } from 'express';
 import { jsonResponse } from '@utils/json-response';
 import { createApp } from './app';
 import logger from '@config/logger';
+import '@config/passport';
 
 export class Server {
   private readonly app: Application;
