@@ -57,21 +57,22 @@ model Account {
 }
 
 model Pharmacy {
-  id           String     @id @default(cuid())
-  name         String
-  description  String?
-  profilePhoto String
-  coverPhoto   String
-  address      String?
-  phone        String
-  email        String?
-  status       Status
-  userId       String     @unique
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id               String     @id @default(cuid())
+  name             String
+  description      String?
+  profilePhoto     String
+  coverPhoto       String
+  address          String?
+  phone            String
+  email            String?
+  status           Status
+  userId           String     @unique
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  employees    Employee[]
-  user         User       @relation(fields: [userId], references: [id])
+  employees        Employee[]
+  user             User       @relation(fields: [userId], references: [id])
+  pharmacyProducts Product[]
 }
 
 model Employee {
@@ -95,3 +96,38 @@ model Employee {
   pharmacy       Pharmacy   @relation(fields: [pharmacyId], references: [id])
 }
 
+model Category {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  description      String?
+  status           Status
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  pharmacyProducts Product[]
+}
+
+model Product {
+  id                   String    @id @default(cuid())
+  name                 String
+  description          String
+  activeIngredient     String?
+  code                 String?
+  manufacturer         String?
+  form                 String
+  image                String
+  requiresPrescription Boolean   @default(false)
+  stock                Int
+  price                Float
+  discount             Float?
+  status               Status
+  expirationDate       DateTime?
+  batchNumber          String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  pharmacyId           String
+  categoryId           String?
+
+  pharmacy             Pharmacy  @relation(fields: [pharmacyId], references: [id])
+  category             Category? @relation(fields: [categoryId], references: [id])
+}

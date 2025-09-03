@@ -19,13 +19,16 @@ import {
   isExpired,
 } from '@utils/getVerificationCodeExpiry';
 import { TooManyRequestsException } from '@exceptions/too-many-requests.exception';
+import { AccountRepository } from '@features/account/account.repository';
 
 @injectable()
 export class AuthService {
   constructor(
     @inject(UserRepository) private readonly userRepository: UserRepository,
     @inject(PharmacyRepository)
-    private readonly pharmacyRepository: PharmacyRepository
+    private readonly pharmacyRepository: PharmacyRepository,
+    @inject(AccountRepository)
+    private readonly accountRepository: AccountRepository
   ) {}
 
   private generateCodeVerification() {
@@ -248,5 +251,42 @@ export class AuthService {
     return {
       accessToken,
     };
+  }
+
+  async validateOrCreateUser(
+    profile: any,
+    accessToken: string,
+    refreshToken: string
+  ) {
+    const provider = 'google';
+    const providerAccountId = profile.id;
+
+    const account =
+      await this.accountRepository.findByProviderAndProviderAccountId(
+        provider,
+        providerAccountId
+      );
+
+    if (account) return account.user;
+
+    const email = profile.emails?.[0]?.value;
+
+    const userExists = await this.userRepository.findOne({
+      email,
+    });
+
+    if (userExists) throw new ConflictException('Email already registered');
+
+    const user = await this.userRepository.createWithAccount({
+      email,
+      account: {
+        provider,
+        providerAccountId,
+        accessToken,
+        refreshToken,
+      },
+    });
+
+    return user;
   }
 }

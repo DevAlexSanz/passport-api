@@ -23,6 +23,27 @@ export class UserRepository {
     });
   }
 
+  async createWithAccount(payload: {
+    email: string;
+    account: {
+      provider: string;
+      providerAccountId: string;
+      accessToken: string;
+      refreshToken: string;
+    };
+  }): Promise<User> {
+    return prisma.user.create({
+      data: {
+        email: payload.email,
+        isVerified: true,
+        role: 'USER',
+        accounts: {
+          create: payload.account,
+        },
+      },
+    });
+  }
+
   async findOne(where: { id?: string; email?: string }): Promise<User | null> {
     return prisma.user.findFirst({
       where,

@@ -13,6 +13,8 @@ import { Role } from '@appTypes/Role';
 import { TooManyRequestsException } from '@exceptions/too-many-requests.exception';
 import { BadRequestException } from '@exceptions/bad-request.exception';
 import { ForbiddenException } from '@exceptions/forbidden.exception';
+import { generateToken } from '@shared/utils/jwt';
+import { env } from '@config/config';
 
 @injectable()
 export class AuthController {
@@ -325,5 +327,41 @@ export class AuthController {
     response.clearCookie('refreshToken');
 
     response.status(204).send();
+  };
+
+  oauthGoogleCallback = async (request: Request, response: Response) => {
+    try {
+      const user = request.user as any;
+
+      if (!user || !user.id) {
+        jsonResponse(response, {
+          message: 'User not found or invalid',
+          statusCode: 401,
+          success: false,
+        });
+      }
+
+      const { accessToken, refreshToken } = generateToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      });
+
+      response.cookie('accessToken', accessToken, {
+        ...commonOptions,
+      });
+
+      response.cookie('refreshToken', refreshToken, {
+        ...commonOptions,
+      });
+
+      response.redirect(`${env.DAVIDA_CLIENT_URL}/dashboard`);
+    } catch (err: any) {
+      jsonResponse(response, {
+        message: 'Error en login con Google',
+        statusCode: 401,
+        success: false,
+      });
+    }
   };
 }
