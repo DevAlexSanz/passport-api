@@ -21,6 +21,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   DAVIDA_CLIENT_URL: z.string().url(),
+  API_BASE_URL: z.string().url(),
 });
 
 const parsed = envSchema.safeParse(process.env);
