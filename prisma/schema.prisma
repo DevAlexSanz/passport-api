@@ -14,7 +14,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
+enum RoleName {
   SUPER_ADMIN
   ADMIN
   CUSTOMER
@@ -34,13 +34,15 @@ model User {
   codeVerification          Int?
   codeVerificationExpiresAt DateTime?
   isVerified                Boolean    @default(false)
-  role                      Role
+  roleId                    String
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
   accounts                  Account[]
   pharmacy                  Pharmacy?
   employee                  Employee?
+
+  role Role @relation(fields: [roleId], references: [id])
 }
 
 model Account {
@@ -115,12 +117,12 @@ model Product {
   code                 String?
   manufacturer         String?
   form                 String
-  image                String
+  image                String?
   requiresPrescription Boolean   @default(false)
   stock                Int
   price                Float
   discount             Float?
-  status               Status
+  status               Status   @default(ACTIVE)
   expirationDate       DateTime?
   batchNumber          String?
   createdAt            DateTime  @default(now())
@@ -130,4 +132,43 @@ model Product {
 
   pharmacy             Pharmacy  @relation(fields: [pharmacyId], references: [id])
   category             Category? @relation(fields: [categoryId], references: [id])
+
+  @@index([name])
+  @@index([status])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        RoleName     @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  permissions Permission[]
+
+  users       User[]
+}
+
+model Resource {
+  id          String       @id @default(cuid())
+  path        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  permissions Permission[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  roleId      String
+  resourceId  String
+  canCreate   Boolean  @default(false)
+  canRead     Boolean  @default(false)
+  canUpdate   Boolean  @default(false)
+  canDelete   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, resourceId])
+  @@index([roleId])
+  @@index([resourceId])
 }

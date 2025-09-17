@@ -11,7 +11,8 @@
     "db:migrate:dev": "dotenv -e .env.development -- prisma migrate dev -n",
     "db:migrate:deploy:dev": "dotenv -e .env.development -- prisma migrate deploy",
     "db:migrate:deploy:prod": "dotenv -e .env.production -- prisma migrate deploy",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:prisma:studio": "dotenv -e .env.development -- prisma studio"
   },
   "keywords": [],
   "author": "",

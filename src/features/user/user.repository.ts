@@ -1,5 +1,4 @@
 import { injectable } from 'tsyringe';
-import { Role } from '@appTypes/Role';
 import { User } from '@generated/prisma';
 import { prisma } from '@database/prisma';
 
@@ -12,7 +11,7 @@ export class UserRepository {
   async create(payload: {
     email: string;
     password: string;
-    role: Role;
+    roleId: string;
     codeVerification: number;
     codeVerificationExpiresAt: Date;
   }): Promise<User> {
@@ -25,6 +24,7 @@ export class UserRepository {
 
   async createWithAccount(payload: {
     email: string;
+    roleId: string;
     account: {
       provider: string;
       providerAccountId: string;
@@ -36,7 +36,7 @@ export class UserRepository {
       data: {
         email: payload.email,
         isVerified: true,
-        role: 'USER',
+        roleId: payload.roleId,
         accounts: {
           create: payload.account,
         },
@@ -44,9 +44,10 @@ export class UserRepository {
     });
   }
 
-  async findOne(where: { id?: string; email?: string }): Promise<User | null> {
+  async findOne(where: { id?: string; email?: string }) {
     return prisma.user.findFirst({
       where,
+      include: { role: true, pharmacy: true },
     });
   }
 

@@ -8,6 +8,7 @@ interface JwtPayload {
   id: string;
   role: Role;
   email: string;
+  pharmacyId?: string;
 }
 
 export const validateAccessToken = (
@@ -40,6 +41,7 @@ export const validateAccessToken = (
       id: decoded.id,
       role: decoded.role,
       email: decoded.email,
+      pharmacyId: decoded?.pharmacyId,
     };
 
     return next();

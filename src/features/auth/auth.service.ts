@@ -20,6 +20,7 @@ import {
 } from '@utils/getVerificationCodeExpiry';
 import { TooManyRequestsException } from '@exceptions/too-many-requests.exception';
 import { AccountRepository } from '@features/account/account.repository';
+import { prisma } from '@database/prisma';
 
 @injectable()
 export class AuthService {
@@ -46,6 +47,12 @@ export class AuthService {
       email,
     });
 
+    const roleData = await prisma.role.findUnique({
+      where: { name: role },
+    });
+
+    if (!roleData) throw new NotFoundException('Role not found');
+
     if (userExists) throw new ConflictException('Email already registered');
 
     const hashedPassword = await hashPassword(password);
@@ -56,7 +63,7 @@ export class AuthService {
     const user = await this.userRepository.create({
       email,
       password: hashedPassword,
-      role,
+      roleId: roleData.id,
       codeVerification,
       codeVerificationExpiresAt,
     });
@@ -118,7 +125,9 @@ export class AuthService {
     email: string;
     password: string;
   }) {
-    const user = await this.userRepository.findOne({ email });
+    const user = await this.userRepository.findOne({
+      email,
+    });
 
     if (!user || !user.email || !user.password)
       throw new NotFoundException('User not found or user only with OAuth');
@@ -126,13 +135,24 @@ export class AuthService {
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid)
-      throw new UnauthorizedException('Invalid creadentials');
+      throw new UnauthorizedException('Invalid credentials');
 
-    const { accessToken, refreshToken } = generateToken({
+    const payload: {
+      id: string;
+      email: string;
+      role: string;
+      pharmacyId?: string;
+    } = {
       id: user.id,
       email: user.email,
-      role: user.role,
-    });
+      role: user.role.name,
+    };
+
+    if (user.pharmacy) {
+      payload.pharmacyId = user.pharmacy.id;
+    }
+
+    const { accessToken, refreshToken } = generateToken(payload);
 
     return {
       accessToken,
@@ -151,7 +171,7 @@ export class AuthService {
       return {
         id: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role.name,
         isVerified: user.isVerified,
         pharmacy,
       };
@@ -245,7 +265,7 @@ export class AuthService {
     const { accessToken } = generateToken({
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: user.role.name,
     });
 
     return {
@@ -277,8 +297,15 @@ export class AuthService {
 
     if (userExists) throw new ConflictException('Email already registered');
 
+    const roleData = await prisma.role.findUnique({
+      where: { name: 'USER' },
+    });
+
+    if (!roleData) throw new NotFoundException('Role not found');
+
     const user = await this.userRepository.createWithAccount({
       email,
+      roleId: roleData.id,
       account: {
         provider,
         providerAccountId,

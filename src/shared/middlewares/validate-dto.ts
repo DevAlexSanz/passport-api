@@ -8,12 +8,13 @@ export const validateDto = (dto: any, source: ValidationSource = 'body') => {
   return async (request: Request, response: Response, next: NextFunction) => {
     const data = request[source];
 
-    const instance = plainToInstance(dto, data);
+    const instance = plainToInstance(dto, data, {
+      enableImplicitConversion: true,
+    });
 
     const errors = await validate(instance, {
       whitelist: true,
       forbidNonWhitelisted: true,
-
     });
 
     if (errors.length > 0) {
@@ -29,6 +30,8 @@ export const validateDto = (dto: any, source: ValidationSource = 'body') => {
         errors: formattedErrors,
       });
     }
+
+    request[source] = instance;
 
     return next();
   };

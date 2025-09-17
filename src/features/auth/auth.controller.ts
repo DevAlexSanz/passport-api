@@ -15,6 +15,7 @@ import { BadRequestException } from '@exceptions/bad-request.exception';
 import { ForbiddenException } from '@exceptions/forbidden.exception';
 import { generateToken } from '@shared/utils/jwt';
 import { env } from '@config/config';
+import { prisma } from '@database/prisma';
 
 @injectable()
 export class AuthController {
@@ -341,10 +342,24 @@ export class AuthController {
         });
       }
 
+      const roleData = await prisma.role.findUnique({
+        where: { id: user.roleId },
+      });
+
+      if (!roleData) {
+        jsonResponse(response, {
+          message: 'User not found or invalid',
+          statusCode: 401,
+          success: false,
+        });
+
+        return;
+      }
+
       const { accessToken, refreshToken } = generateToken({
         id: user.id,
         email: user.email,
-        role: user.role,
+        role: roleData.name,
       });
 
       response.cookie('accessToken', accessToken, {
