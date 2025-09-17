@@ -11,6 +11,27 @@ export class ProductController {
     @inject(ProductService) private readonly productService: ProductService
   ) {}
 
+  getAllProducts = async (_request: Request, response: Response) => {
+    try {
+      const products = await this.productService.findAll();
+
+      jsonResponse(response, {
+        message: 'OK',
+        statusCode: 200,
+        success: true,
+        data: products,
+      });
+    } catch (error) {
+      logger.error(error);
+
+      jsonResponse(response, {
+        message: 'Internal Server Error',
+        statusCode: 500,
+        success: false,
+      });
+    }
+  };
+
   createProduct = async (request: Request, response: Response) => {
     const pharmacyId = request.user?.pharmacyId;
     const dto: CreateProductDTO = request.body;

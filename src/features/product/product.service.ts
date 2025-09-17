@@ -11,16 +11,21 @@ export class ProductService {
     private readonly productRepository: ProductRepository
   ) {}
 
+  async findAll() {
+    return this.productRepository.findAll();
+  }
+
   async createProduct(
     pharmacyId: string,
     product: CreateProductDTO,
     image: Express.Multer.File
   ): Promise<Product> {
-    const imageResult = await uploadToCloudinary(
-      image,
-      'product-images'
-    );
+    const imageResult = await uploadToCloudinary(image, 'product-images');
 
-    return this.productRepository.create(pharmacyId, product, imageResult.secure_url);
+    return this.productRepository.create(
+      pharmacyId,
+      product,
+      imageResult.secure_url
+    );
   }
 }

@@ -10,6 +10,8 @@ const router = Router();
 
 const productController = container.resolve(ProductController);
 
+router.get('/', productController.getAllProducts);
+
 router.post(
   '/',
   upload.single('productImage'),
