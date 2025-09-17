@@ -4,7 +4,6 @@ import { ProductService } from './product.service';
 import { jsonResponse } from '@shared/utils/json-response';
 import logger from '@config/logger';
 import { CreateProductDTO } from './dto/create-product.dto';
-import { BadRequestException } from '@shared/exceptions/bad-request.exception';
 
 @injectable()
 export class ProductController {
@@ -36,14 +35,6 @@ export class ProductController {
       });
     } catch (error) {
       logger.error(error);
-
-      if (error instanceof BadRequestException) {
-        return jsonResponse(response, {
-          message: error.message,
-          statusCode: error.statusCode,
-          success: error.success,
-        });
-      }
 
       jsonResponse(response, {
         message: 'Internal Server Error',

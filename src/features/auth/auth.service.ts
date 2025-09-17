@@ -20,7 +20,7 @@ import {
 } from '@utils/getVerificationCodeExpiry';
 import { TooManyRequestsException } from '@exceptions/too-many-requests.exception';
 import { AccountRepository } from '@features/account/account.repository';
-import { prisma } from '@database/prisma';
+import { RoleRepository } from '@features/role/role.repository';
 
 @injectable()
 export class AuthService {
@@ -29,7 +29,9 @@ export class AuthService {
     @inject(PharmacyRepository)
     private readonly pharmacyRepository: PharmacyRepository,
     @inject(AccountRepository)
-    private readonly accountRepository: AccountRepository
+    private readonly accountRepository: AccountRepository,
+    @inject(RoleRepository)
+    private readonly roleRepository: RoleRepository
   ) {}
 
   private generateCodeVerification() {
@@ -47,9 +49,7 @@ export class AuthService {
       email,
     });
 
-    const roleData = await prisma.role.findUnique({
-      where: { name: role },
-    });
+    const roleData = await this.roleRepository.findByName(role);
 
     if (!roleData) throw new NotFoundException('Role not found');
 
@@ -297,9 +297,7 @@ export class AuthService {
 
     if (userExists) throw new ConflictException('Email already registered');
 
-    const roleData = await prisma.role.findUnique({
-      where: { name: 'USER' },
-    });
+    const roleData = await this.roleRepository.findByName('USER');
 
     if (!roleData) throw new NotFoundException('Role not found');
 

@@ -15,11 +15,14 @@ import { BadRequestException } from '@exceptions/bad-request.exception';
 import { ForbiddenException } from '@exceptions/forbidden.exception';
 import { generateToken } from '@shared/utils/jwt';
 import { env } from '@config/config';
-import { prisma } from '@database/prisma';
+import { RoleService } from '@features/role/role.service';
 
 @injectable()
 export class AuthController {
-  constructor(@inject(AuthService) private readonly authService: AuthService) {}
+  constructor(
+    @inject(AuthService) private readonly authService: AuthService,
+    @inject(RoleService) private readonly roleService: RoleService
+  ) {}
 
   registerPharmacy = async (request: Request, response: Response) => {
     const dto: CreateAdminWithPharmacyDTO = request.body;
@@ -60,15 +63,10 @@ export class AuthController {
     } catch (error) {
       logger.error(error);
 
-      if (error instanceof BadRequestException) {
-        return jsonResponse(response, {
-          message: error.message,
-          statusCode: error.statusCode,
-          success: error.success,
-        });
-      }
-
-      if (error instanceof ConflictException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
         return jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
@@ -140,15 +138,10 @@ export class AuthController {
     } catch (error) {
       logger.error(error);
 
-      if (error instanceof NotFoundException) {
-        return jsonResponse(response, {
-          message: error.message,
-          statusCode: error.statusCode,
-          success: error.success,
-        });
-      }
-
-      if (error instanceof UnauthorizedException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof UnauthorizedException
+      ) {
         return jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
@@ -217,15 +210,10 @@ export class AuthController {
     } catch (error) {
       logger.error(error);
 
-      if (error instanceof NotFoundException) {
-        return jsonResponse(response, {
-          message: error.message,
-          statusCode: error.statusCode,
-          success: error.success,
-        });
-      }
-
-      if (error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         return jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
@@ -291,23 +279,11 @@ export class AuthController {
     } catch (error) {
       logger.error(error);
 
-      if (error instanceof NotFoundException) {
-        return jsonResponse(response, {
-          message: error.message,
-          statusCode: error.statusCode,
-          success: error.success,
-        });
-      }
-
-      if (error instanceof ConflictException) {
-        return jsonResponse(response, {
-          message: error.message,
-          statusCode: error.statusCode,
-          success: error.success,
-        });
-      }
-
-      if (error instanceof TooManyRequestsException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException ||
+        error instanceof TooManyRequestsException
+      ) {
         return jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
@@ -342,11 +318,9 @@ export class AuthController {
         });
       }
 
-      const roleData = await prisma.role.findUnique({
-        where: { id: user.roleId },
-      });
+      const role = await this.roleService.findById(user.roleId);
 
-      if (!roleData) {
+      if (!role) {
         jsonResponse(response, {
           message: 'User not found or invalid',
           statusCode: 401,
@@ -359,7 +333,7 @@ export class AuthController {
       const { accessToken, refreshToken } = generateToken({
         id: user.id,
         email: user.email,
-        role: roleData.name,
+        role: role.name,
       });
 
       response.cookie('accessToken', accessToken, {
@@ -371,10 +345,21 @@ export class AuthController {
       });
 
       response.redirect(`${env.DAVIDA_CLIENT_URL}/dashboard`);
-    } catch (err: any) {
+    } catch (error) {
+      if (
+        error instanceof ConflictException ||
+        error instanceof NotFoundException
+      ) {
+        jsonResponse(response, {
+          message: error.name,
+          statusCode: error.statusCode,
+          success: error.success,
+        });
+      }
+
       jsonResponse(response, {
-        message: 'Error en login con Google',
-        statusCode: 401,
+        message: 'Internal Server Error',
+        statusCode: 500,
         success: false,
       });
     }
