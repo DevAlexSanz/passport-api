@@ -1,32 +1,34 @@
 import logger from '@config/logger';
 import { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
-import { jsonResponse } from '@shared/utils/json-response';
+import { jsonResponse } from '@utils/json-response';
 import { NotFoundException } from '@exceptions/not-found.exception';
-import { CreateProductDTO } from './dto/create-product.dto';
-import { ProductService } from './product.service';
+import { ProductCategoryService } from './product-category.service';
+import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 import { isAdminPayload } from '@shared/utils/is-admin-payload';
 import { ForbiddenException } from '@shared/exceptions/forbidden.exception';
-import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 
 @injectable()
-export class ProductController {
+export class ProductCategoryController {
   constructor(
-    @inject(ProductService) private readonly productService: ProductService
+    @inject(ProductCategoryService)
+    private readonly categoryService: ProductCategoryService
   ) {}
 
-  getAllProducts = async (_request: Request, response: Response) => {
+  findAll = async (request: Request, response: Response) => {
+    const { id } = request.params;
+
     try {
-      const records = await this.productService.findAll();
+      const records = await this.categoryService.findAll(id);
 
       jsonResponse(response, {
-        message: 'OK',
+        message: 'Success!',
         statusCode: 200,
         success: true,
         records,
       });
-    } catch (error) {
-      logger.error(error);
+    } catch (err) {
+      logger.error(err);
 
       jsonResponse(response, {
         message: 'Internal Server Error',
@@ -36,7 +38,7 @@ export class ProductController {
     }
   };
 
-  getProductsByPharmacy = async (request: Request, response: Response) => {
+  findAllByPharmacy = async (request: Request, response: Response) => {
     const { user } = request;
 
     if (!user) {
@@ -48,7 +50,7 @@ export class ProductController {
     }
 
     try {
-      const records = await this.productService.findAllByPharmacyId(
+      const records = await this.categoryService.findAllByPharmacyId(
         user.pharmacyId
       );
 
@@ -75,8 +77,8 @@ export class ProductController {
     }
   };
 
-  createProduct = async (request: Request, response: Response) => {
-    const dto: CreateProductDTO = request.body;
+  create = async (request: Request, response: Response) => {
+    const dto = request.body;
     const { user } = request;
 
     if (!user) {
@@ -88,14 +90,15 @@ export class ProductController {
     }
 
     try {
-      await this.productService.createProduct(user.pharmacyId as string, dto);
+      await this.categoryService.create(user.pharmacyId, dto);
+
       jsonResponse(response, {
-        message: `Registered`,
+        message: 'Creation Successful!',
         statusCode: 201,
         success: true,
       });
-    } catch (error) {
-      logger.error(error);
+    } catch (err) {
+      logger.error(err);
 
       jsonResponse(response, {
         message: 'Internal Server Error',

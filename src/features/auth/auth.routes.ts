@@ -1,33 +1,23 @@
 import { Router } from 'express';
 import { container } from 'tsyringe';
-import { AuthController } from '@features/auth/auth.controller';
+import { upload } from '@middlewares/multer';
 import { validateDto } from '@middlewares/validate-dto';
+import passportRoutes from './strategies/passport.routes';
+import { AuthController } from '@features/auth/auth.controller';
 import { CreateUserDTO } from '@features/auth/dto/create-user.dto';
 import { validateAccessToken } from '@shared/middlewares/validate-access-token';
-import { validateRefreshToken } from '@shared/middlewares/validate-refresh-token';
-import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
-import { upload } from '@middlewares/multer';
-import passport from 'passport';
+import { CreateAdminWithPharmacyDTO } from './dto/create-admin-with-pharmacy.dto';
 
 const router = Router();
 
 const authController = container.resolve(AuthController);
 
+router.use(passportRoutes);
+
 router.post(
   '/register',
   validateDto(CreateUserDTO, 'body'),
   authController.registerUser
-);
-
-router.get(
-  '/google',
-  passport.authenticate('google', { scope: ['email', 'profile'] })
-);
-
-router.get(
-  '/google/callback',
-  passport.authenticate('google', { session: false }),
-  authController.oauthGoogleCallback
 );
 
 router.post(
@@ -50,11 +40,7 @@ router.post(
   authController.verifyAccount
 );
 
-router.post(
-  '/refresh-token',
-  validateRefreshToken,
-  authController.refreshAccessToken
-);
+router.post('/refresh-token', authController.refreshAccessToken);
 
 router.post(
   '/resend-code',
@@ -63,5 +49,12 @@ router.post(
 );
 
 router.post('/logout', authController.logout);
+
+router.get('/done', (_request, response) => {
+  response.status(200).json({
+    message: 'Success',
+    success: true,
+  });
+});
 
 export default router;

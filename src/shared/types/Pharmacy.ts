@@ -1,4 +1,4 @@
-import { Status } from './Status';
+import { Status } from '@database/generated/prisma';
 
 export type Pharmacy = {
   id: string;

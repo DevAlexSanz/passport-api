@@ -13,15 +13,25 @@ const envSchema = z.object({
     .string()
     .transform((val) => val.split(',').map((s) => s.trim()))
     .pipe(z.array(z.string().url())),
-  CLOUD_NAME: z.string(),
-  API_KEY: z.string(),
-  API_SECRET: z.string(),
+
+  CLOUDINARY_CLOUD_NAME: z.string(),
+  CLOUDINARY_API_KEY: z.string(),
+  CLOUDINARY_API_SECRET: z.string(),
+
   GMAIL_USER: z.string(),
   GMAIL_PASSWORD: z.string(),
+
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
-  DAVIDA_CLIENT_URL: z.string().url(),
-  API_BASE_URL: z.string().url(),
+  MICROSOFT_CLIENT_ID: z.string(),
+  MICROSOFT_CLIENT_SECRET: z.string(),
+  TWITTER_CLIENT_ID: z.string(),
+  TWITTER_CLIENT_SECRET: z.string(),
+  FACEBOOK_CLIENT_ID: z.string(),
+  FACEBOOK_CLIENT_SECRET: z.string(),
+
+  DAVIDA_CLIENT_URL: z.string(),
+  API_BASE_URL: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);

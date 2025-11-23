@@ -14,11 +14,159 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum RoleName {
-  SUPER_ADMIN
-  ADMIN
-  CUSTOMER
-  USER
+model Role {
+  id        String   @id @default(cuid())
+  name      RoleEnum @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  permissions Permission[]
+  user        User[]
+}
+
+model Resource {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  path      String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  permissions Permission[]
+}
+
+model Permission {
+  canCreate  Boolean
+  canView    Boolean
+  canUpdate  Boolean
+  canDelete  Boolean
+  assignAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+  roleId     String
+  resourceId String
+
+  role     Role     @relation(fields: [roleId], references: [id])
+  resource Resource @relation(fields: [resourceId], references: [id])
+
+  @@id([roleId, resourceId])
+}
+
+model User {
+  id                        String       @id @default(cuid())
+  email                     String       @unique
+  password                  String?
+  provider                  AuthProvider @default(local)
+  codeVerification          Int?
+  codeVerificationExpiresAt DateTime?    @db.Timestamptz(6)
+  isVerified                Boolean      @default(false)
+  createdAt                 DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime     @updatedAt @db.Timestamptz(6)
+  roleId                    String
+
+  role     Role      @relation(fields: [roleId], references: [id])
+  client   Client?
+  pharmacy Pharmacy?
+  employee Employee?
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  fullName  String
+  phone     String
+  status    Status   @default(ACTIVE)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  userId    String   @unique
+
+  user      User      @relation(fields: [userId], references: [id])
+  addresses Address[]
+}
+
+model Employee {
+  id            String  @id @default(cuid())
+  firstName     String
+  secondName    String?
+  thirdName     String?
+  firstSurname  String
+  secondSurname String?
+  dui           String
+  phone         String
+  email         String
+  status        Status  @default(ACTIVE)
+  userId        String  @unique
+  pharmacyId    String
+
+  user     User     @relation(fields: [userId], references: [id])
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id])
+}
+
+model Address {
+  id           String   @id @default(cuid())
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  province     String
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+  clientId     String
+
+  client Client @relation(fields: [clientId], references: [id])
+}
+
+model Pharmacy {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  profilePhoto String
+  coverPhoto   String
+  address      String?
+  phone        String
+  email        String
+  status       Status   @default(ACTIVE)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+  userId       String   @unique
+
+  user            User              @relation(fields: [userId], references: [id])
+  employee        Employee[]
+  productCategory ProductCategory[]
+  product         Product[]
+}
+
+model ProductCategory {
+  id          String   @id @default(cuid())
+  name        String
+  status      Status   @default(ACTIVE)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+  pharmacyId  String
+
+  pharmacy Pharmacy  @relation(fields: [pharmacyId], references: [id])
+  product  Product[]
+}
+
+model Product {
+  id                  String   @id @default(cuid())
+  name                String
+  description         String
+  activeIngredient    String
+  code                String
+  manoFacturer        String
+  form                String
+  image               String
+  requirePrescription Boolean
+  stock               Int
+  price               Float
+  discount            Float?
+  batchNumber         String
+  status              Status   @default(ACTIVE)
+  expirationDate      DateTime @db.Timestamptz(6)
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(6)
+  pharmacyId          String
+  productCategoryId   String?
+
+  pharmacy        Pharmacy         @relation(fields: [pharmacyId], references: [id])
+  productCategory ProductCategory? @relation(fields: [productCategoryId], references: [id])
 }
 
 enum Status {
@@ -27,148 +175,16 @@ enum Status {
   DELETED
 }
 
-model User {
-  id                        String     @id @default(cuid())
-  email                     String?    @unique
-  password                  String?
-  codeVerification          Int?
-  codeVerificationExpiresAt DateTime?
-  isVerified                Boolean    @default(false)
-  roleId                    String
-  createdAt                 DateTime   @default(now())
-  updatedAt                 DateTime   @updatedAt
-
-  accounts                  Account[]
-  pharmacy                  Pharmacy?
-  employee                  Employee?
-
-  role Role @relation(fields: [roleId], references: [id])
+enum AuthProvider {
+  local
+  google
+  microsoft
+  facebook
+  twitter
 }
 
-model Account {
-  id                String   @id @default(cuid())
-  provider          String
-  providerAccountId String
-  accessToken       String?
-  refreshToken      String?
-  expiresAt         DateTime?
-  userId            String
-  user              User     @relation(fields: [userId], references: [id])
-
-  @@unique([provider, providerAccountId])
-}
-
-model Pharmacy {
-  id               String     @id @default(cuid())
-  name             String
-  description      String?
-  profilePhoto     String
-  coverPhoto       String
-  address          String?
-  phone            String
-  email            String?
-  status           Status
-  userId           String     @unique
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-
-  employees        Employee[]
-  user             User       @relation(fields: [userId], references: [id])
-  pharmacyProducts Product[]
-}
-
-model Employee {
-  id             String     @id @default(cuid())
-  firstName      String
-  secondName     String?
-  thirdName      String?
-  firstLastname  String
-  secondLastname String?
-  dui            String
-  numberPhone    String
-  email          String?
-  address        String?
-  status         Status
-  userId         String     @unique
-  pharmacyId     String     @unique
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  user           User       @relation(fields: [userId], references: [id])
-  pharmacy       Pharmacy   @relation(fields: [pharmacyId], references: [id])
-}
-
-model Category {
-  id               String   @id @default(cuid())
-  name             String   @unique
-  description      String?
-  status           Status
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  pharmacyProducts Product[]
-}
-
-model Product {
-  id                   String    @id @default(cuid())
-  name                 String
-  description          String
-  activeIngredient     String?
-  code                 String?
-  manufacturer         String?
-  form                 String
-  image                String?
-  requiresPrescription Boolean   @default(false)
-  stock                Int
-  price                Float
-  discount             Float?
-  status               Status   @default(ACTIVE)
-  expirationDate       DateTime?
-  batchNumber          String?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  pharmacyId           String
-  categoryId           String?
-
-  pharmacy             Pharmacy  @relation(fields: [pharmacyId], references: [id])
-  category             Category? @relation(fields: [categoryId], references: [id])
-
-  @@index([name])
-  @@index([status])
-}
-
-model Role {
-  id          String       @id @default(cuid())
-  name        RoleName     @unique
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  permissions Permission[]
-
-  users       User[]
-}
-
-model Resource {
-  id          String       @id @default(cuid())
-  path        String       @unique
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  permissions Permission[]
-}
-
-model Permission {
-  id          String   @id @default(cuid())
-  roleId      String
-  resourceId  String
-  canCreate   Boolean  @default(false)
-  canRead     Boolean  @default(false)
-  canUpdate   Boolean  @default(false)
-  canDelete   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-
-  @@unique([roleId, resourceId])
-  @@index([roleId])
-  @@index([resourceId])
+enum RoleEnum {
+  ADMIN
+  EMPLOYEE
+  USER
 }

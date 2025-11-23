@@ -1,13 +1,16 @@
 import { injectable } from 'tsyringe';
 import { prisma } from '@database/prisma';
-import { Product } from '@generated/prisma';
 import { NotFoundException } from '@exceptions/not-found.exception';
-import { CreateProductDTO } from './dto/create-product.dto';
+import { CreateProductCategoryDTO } from './dto';
 
 @injectable()
-export class ProductService {
-  async findAll() {
-    return prisma.product.findMany();
+export class ProductCategoryService {
+  async findAll(pharmacyId: string) {
+    return prisma.productCategory.findMany({
+      where: {
+        pharmacyId,
+      },
+    });
   }
 
   async findAllByPharmacyId(pharmacyId: string) {
@@ -19,22 +22,14 @@ export class ProductService {
       throw new NotFoundException('Pharmacy not found');
     }
 
-    return prisma.product.findMany({
+    return prisma.productCategory.findMany({
       where: {
         pharmacyId,
       },
     });
   }
 
-  async createProduct(
-    pharmacyId: string,
-    product: CreateProductDTO
-  ): Promise<Product> {
-    return prisma.product.create({
-      data: {
-        ...product,
-        pharmacyId,
-      },
-    });
+  async create(pharmacyId: string, payload: CreateProductCategoryDTO) {
+    return prisma.productCategory.create({ data: { ...payload, pharmacyId } });
   }
 }

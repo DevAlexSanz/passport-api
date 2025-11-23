@@ -3,5 +3,7 @@ export interface JsonResponse {
   message: string;
   success: boolean;
   data?: any;
+  records?: any;
+  record?: any;
   errors?: any;
 }

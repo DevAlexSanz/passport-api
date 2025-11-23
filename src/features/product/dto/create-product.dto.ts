@@ -7,8 +7,9 @@ import {
   IsString,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { Prisma } from '@generated/prisma';
 
-export class CreateProductDTO {
+export class CreateProductDTO implements Prisma.ProductCreateWithoutPharmacyInput {
   @IsString()
   @IsNotEmpty({ message: 'Name is required' })
   name: string;
@@ -18,16 +19,16 @@ export class CreateProductDTO {
   description: string;
 
   @IsString()
-  @IsOptional()
-  activeIngredient?: string;
+  @IsNotEmpty({ message: 'ActiveIngredient is required' })
+  activeIngredient: string;
 
   @IsString()
-  @IsOptional()
-  code?: string;
+  @IsNotEmpty({ message: 'Code is required' })
+  code: string;
 
   @IsString()
-  @IsOptional()
-  manufacturer?: string;
+  @IsNotEmpty({ message: 'ManoFacturer is required' })
+  manoFacturer: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Form is required' })
@@ -35,7 +36,7 @@ export class CreateProductDTO {
 
   @Transform(({ value }) => value === 'true')
   @IsBoolean()
-  requiresPrescription: boolean;
+  requirePrescription: boolean;
 
   @Type(() => Number)
   @IsNumber({}, { message: 'Stock must be a number' })
@@ -49,13 +50,16 @@ export class CreateProductDTO {
   @IsOptional()
   discount?: number;
 
+
+  image: string;
+
   @IsDateString()
-  @IsOptional()
-  expirationDate?: string;
+  @IsNotEmpty({ message: 'ExpirationDate is required' })
+  expirationDate: string;
 
   @IsString()
-  @IsOptional()
-  batchNumber?: string;
+  @IsNotEmpty({ message: 'BatchNumber is required' })
+  batchNumber: string;
 
   @IsString()
   @IsOptional()

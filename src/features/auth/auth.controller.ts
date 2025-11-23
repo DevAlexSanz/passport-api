@@ -4,25 +4,20 @@ import { AuthService } from '@features/auth/auth.service';
 import { jsonResponse } from '@utils/json-response';
 import { ConflictException } from '@exceptions/conflict.exception';
 import { CreateUserDTO } from './dto/create-user.dto';
-import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
+import { CreateAdminWithPharmacyDTO } from './dto/create-admin-with-pharmacy.dto';
 import logger from '@config/logger';
 import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 import { NotFoundException } from '@shared/exceptions/not-found.exception';
 import { commonOptions } from '@config/cookie';
-import { Role } from '@appTypes/Role';
 import { TooManyRequestsException } from '@exceptions/too-many-requests.exception';
 import { BadRequestException } from '@exceptions/bad-request.exception';
 import { ForbiddenException } from '@exceptions/forbidden.exception';
 import { generateToken } from '@shared/utils/jwt';
 import { env } from '@config/config';
-import { RoleService } from '@features/role/role.service';
 
 @injectable()
 export class AuthController {
-  constructor(
-    @inject(AuthService) private readonly authService: AuthService,
-    @inject(RoleService) private readonly roleService: RoleService
-  ) {}
+  constructor(@inject(AuthService) private readonly authService: AuthService) {}
 
   registerPharmacy = async (request: Request, response: Response) => {
     const dto: CreateAdminWithPharmacyDTO = request.body;
@@ -38,7 +33,7 @@ export class AuthController {
     const files = request.files;
 
     if (!files.profilePhoto || !files.coverPhoto) {
-      return jsonResponse(response, {
+      jsonResponse(response, {
         message: 'Both profile and cover photos are required',
         statusCode: 400,
         success: false,
@@ -67,7 +62,7 @@ export class AuthController {
         error instanceof BadRequestException ||
         error instanceof ConflictException
       ) {
-        return jsonResponse(response, {
+        jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
           success: error.success,
@@ -100,7 +95,7 @@ export class AuthController {
       logger.error(error);
 
       if (error instanceof ConflictException) {
-        return jsonResponse(response, {
+        jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
           success: error.success,
@@ -142,7 +137,7 @@ export class AuthController {
         error instanceof NotFoundException ||
         error instanceof UnauthorizedException
       ) {
-        return jsonResponse(response, {
+        jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
           success: error.success,
@@ -158,26 +153,28 @@ export class AuthController {
   };
 
   getMe = async (request: Request, response: Response) => {
-    const userId = request.user?.id;
-    const userRole = request.user?.role;
+    const { user: userRequest } = request;
 
+    if (!userRequest) {
+      throw new UnauthorizedException('User not found in request');
+    }
     try {
-      const user = await this.authService.getMe(
-        userId as string,
-        userRole as Role
-      );
+      const { user, pharmacy } = await this.authService.getMe(userRequest.id);
 
       jsonResponse(response, {
         message: 'User retrieved successfully',
         statusCode: 200,
         success: true,
-        data: user,
+        record: {
+          user,
+          pharmacy,
+        },
       });
     } catch (error) {
       logger.error(error);
 
       if (error instanceof NotFoundException) {
-        return jsonResponse(response, {
+        jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
           success: error.success,
@@ -193,12 +190,16 @@ export class AuthController {
   };
 
   verifyAccount = async (request: Request, response: Response) => {
-    const userId = request.user?.id;
     const { codeVerification } = request.body;
+    const { user } = request;
+
+    if (!user) {
+      throw new UnauthorizedException('User not found in request');
+    }
 
     try {
       await this.authService.verifyAccount({
-        id: userId as string,
+        id: user.id,
         code: Number(codeVerification),
       });
 
@@ -214,7 +215,7 @@ export class AuthController {
         error instanceof NotFoundException ||
         error instanceof ForbiddenException
       ) {
-        return jsonResponse(response, {
+        jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
           success: error.success,
@@ -230,11 +231,15 @@ export class AuthController {
   };
 
   refreshAccessToken = async (request: Request, response: Response) => {
-    const userId = request.user?.id;
+    const { user } = request;
+
+    if (!user) {
+      throw new UnauthorizedException('User not found in request');
+    }
 
     try {
       const { accessToken } = await this.authService.refreshAccessToken(
-        userId as string
+        user.id
       );
 
       response.cookie('accessToken', accessToken, {
@@ -250,7 +255,7 @@ export class AuthController {
       logger.error(error);
 
       if (error instanceof NotFoundException) {
-        return jsonResponse(response, {
+        jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
           success: error.success,
@@ -266,10 +271,14 @@ export class AuthController {
   };
 
   resendCodeVerification = async (request: Request, response: Response) => {
-    const userId = request.user?.id;
+    const { user } = request;
+
+    if (!user) {
+      throw new UnauthorizedException('User not found in request');
+    }
 
     try {
-      await this.authService.resendCodeVerification(userId as string);
+      await this.authService.resendCodeVerification(user.id);
 
       jsonResponse(response, {
         message: 'Access token refreshed successfully',
@@ -284,7 +293,7 @@ export class AuthController {
         error instanceof ConflictException ||
         error instanceof TooManyRequestsException
       ) {
-        return jsonResponse(response, {
+        jsonResponse(response, {
           message: error.message,
           statusCode: error.statusCode,
           success: error.success,
@@ -306,34 +315,18 @@ export class AuthController {
     response.status(204).send();
   };
 
-  oauthGoogleCallback = async (request: Request, response: Response) => {
+  oauthCallback = async (request: Request, response: Response) => {
+    const { user } = request;
+
+    if (!user) {
+      throw new UnauthorizedException('User not found in request');
+    }
+
     try {
-      const user = request.user as any;
-
-      if (!user || !user.id) {
-        jsonResponse(response, {
-          message: 'User not found or invalid',
-          statusCode: 401,
-          success: false,
-        });
-      }
-
-      const role = await this.roleService.findById(user.roleId);
-
-      if (!role) {
-        jsonResponse(response, {
-          message: 'User not found or invalid',
-          statusCode: 401,
-          success: false,
-        });
-
-        return;
-      }
-
       const { accessToken, refreshToken } = generateToken({
         id: user.id,
+        role: user.role,
         email: user.email,
-        role: role.name,
       });
 
       response.cookie('accessToken', accessToken, {
@@ -344,11 +337,12 @@ export class AuthController {
         ...commonOptions,
       });
 
-      response.redirect(`${env.DAVIDA_CLIENT_URL}/dashboard`);
+      response.redirect(`${env.DAVIDA_CLIENT_URL}/admin/dashboard`);
     } catch (error) {
       if (
         error instanceof ConflictException ||
-        error instanceof NotFoundException
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
       ) {
         jsonResponse(response, {
           message: error.name,

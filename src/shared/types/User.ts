@@ -1,4 +1,4 @@
-import { Role } from '@appTypes/Role';
+import { RoleEnum } from '@database/generated/prisma';
 
 export interface User {
   id: string;
@@ -6,12 +6,12 @@ export interface User {
   password: string;
   codeVerification: string | null;
   isVerified: boolean;
-  role: Role;
+  role: RoleEnum;
   createdAt: string | null;
   updatedAt: string | null;
 }
 
 export type CreateUser = Pick<
   User,
-  'email' | 'password' | 'role'
+  'email' | 'password' | 'role' | 'isVerified'
 >;

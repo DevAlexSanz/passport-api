@@ -1,39 +1,26 @@
-import { inject, injectable } from 'tsyringe';
-import { UserRepository } from '@features/user/user.repository';
-import { PharmacyRepository } from '@features/pharmacy/pharmacy.repository';
+import { injectable } from 'tsyringe';
 import { ConflictException } from '@exceptions/conflict.exception';
 import { comparePassword, hashPassword } from '@utils/bcrypt';
 import { CreateUser } from '@appTypes/User';
 import { Role } from '@shared/constants/Role';
-import { Role as RoleType } from '@appTypes/Role';
-import { CreateAdminWithPharmacyDTO } from './dto/create-pharmacy.dto';
+import { CreateAdminWithPharmacyDTO } from './dto/create-admin-with-pharmacy.dto';
 import { generateCodeVerified } from '@utils/generate-code-verified';
 import { ForbiddenException } from '@shared/exceptions/forbidden.exception';
 import { NotFoundException } from '@shared/exceptions/not-found.exception';
 import { UnauthorizedException } from '@shared/exceptions/unauthorized.exception';
 import { generateToken } from '@shared/utils/jwt';
-import { uploadToCloudinary } from '@shared/utils/cloudinary';
 import { sendEmail } from '@utils/nodemailer';
 import {
   getVerificationCodeExpiry,
   isExpired,
 } from '@utils/getVerificationCodeExpiry';
 import { TooManyRequestsException } from '@exceptions/too-many-requests.exception';
-import { AccountRepository } from '@features/account/account.repository';
-import { RoleRepository } from '@features/role/role.repository';
+import { prisma } from '@database/prisma';
+import { AuthProvider } from '@database/generated/prisma';
+import { uploadToCloudinary } from '@utils/cloudinary';
 
 @injectable()
 export class AuthService {
-  constructor(
-    @inject(UserRepository) private readonly userRepository: UserRepository,
-    @inject(PharmacyRepository)
-    private readonly pharmacyRepository: PharmacyRepository,
-    @inject(AccountRepository)
-    private readonly accountRepository: AccountRepository,
-    @inject(RoleRepository)
-    private readonly roleRepository: RoleRepository
-  ) {}
-
   private generateCodeVerification() {
     const codeVerification = generateCodeVerified();
     const codeVerificationExpiresAt = getVerificationCodeExpiry();
@@ -44,28 +31,44 @@ export class AuthService {
     };
   }
 
-  private async createUser({ email, password, role }: CreateUser) {
-    const userExists = await this.userRepository.findOne({
-      email,
+  private async verifyUser(id: string) {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: { role: true },
     });
 
-    const roleData = await this.roleRepository.findByName(role);
+    if (!user) throw new NotFoundException('User not found');
 
-    if (!roleData) throw new NotFoundException('Role not found');
+    return user;
+  }
+
+  private async createUser({ email, password, role, isVerified }: CreateUser) {
+    const userExists = await prisma.user.findUnique({
+      where: { email },
+    });
 
     if (userExists) throw new ConflictException('Email already registered');
+
+    const roleData = await prisma.role.findFirst({
+      where: { name: role },
+    });
+
+    if (!roleData) throw new NotFoundException('Role not found');
 
     const hashedPassword = await hashPassword(password);
 
     const { codeVerification, codeVerificationExpiresAt } =
       this.generateCodeVerification();
 
-    const user = await this.userRepository.create({
-      email,
-      password: hashedPassword,
-      roleId: roleData.id,
-      codeVerification,
-      codeVerificationExpiresAt,
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        roleId: roleData.id,
+        isVerified,
+        codeVerification,
+        codeVerificationExpiresAt,
+      },
     });
 
     await sendEmail({
@@ -75,16 +78,15 @@ export class AuthService {
       code: codeVerification,
     });
 
-    return {
-      user,
-    };
+    return user;
   }
 
   async registerUser({ email, password }: { email: string; password: string }) {
-    await this.createUser({
+    return await this.createUser({
       email,
       password,
       role: Role.USER,
+      isVerified: false,
     });
   }
 
@@ -93,10 +95,11 @@ export class AuthService {
     profilePhoto: Express.Multer.File,
     coverPhoto: Express.Multer.File
   ) {
-    const { user } = await this.createUser({
+    const user = await this.createUser({
       email: pharmacy.email,
       password: pharmacy.password,
       role: Role.ADMIN,
+      isVerified: true,
     });
 
     const profilePhotoUrl = await uploadToCloudinary(
@@ -106,15 +109,17 @@ export class AuthService {
 
     const coverPhotoUrl = await uploadToCloudinary(coverPhoto, 'cover-photos');
 
-    await this.pharmacyRepository.create({
-      name: pharmacy.name,
-      description: pharmacy.description,
-      profilePhoto: profilePhotoUrl.secure_url,
-      coverPhoto: coverPhotoUrl.secure_url,
-      address: pharmacy.address,
-      phone: pharmacy.phone,
-      email: pharmacy.email,
-      userId: user.id,
+    return prisma.pharmacy.create({
+      data: {
+        name: pharmacy.name,
+        description: pharmacy.description,
+        profilePhoto: profilePhotoUrl.secure_url,
+        coverPhoto: coverPhotoUrl.secure_url,
+        address: pharmacy.address,
+        phone: pharmacy.phone,
+        email: pharmacy.email,
+        userId: user.id,
+      },
     });
   }
 
@@ -125,11 +130,12 @@ export class AuthService {
     email: string;
     password: string;
   }) {
-    const user = await this.userRepository.findOne({
-      email,
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { pharmacy: true },
     });
 
-    if (!user || !user.email || !user.password)
+    if (!user || !user.password)
       throw new NotFoundException('User not found or user only with OAuth');
 
     const isPasswordValid = await comparePassword(password, user.password);
@@ -145,7 +151,7 @@ export class AuthService {
     } = {
       id: user.id,
       email: user.email,
-      role: user.role.name,
+      role: user.roleId,
     };
 
     if (user.pharmacy) {
@@ -160,35 +166,39 @@ export class AuthService {
     };
   }
 
-  async getMe(id: string, role: RoleType) {
-    const user = await this.userRepository.findOne({ id });
+  async getMe(id: string) {
+    const user = await this.verifyUser(id);
 
-    if (!user) throw new NotFoundException('User not found');
-
-    if (role === Role.ADMIN) {
-      const pharmacy = await this.pharmacyRepository.findByUserId(user.id);
+    if (['ADMIN', 'EMPLOYEE'].includes(user.role.name)) {
+      const pharmacy = await prisma.pharmacy.findUnique({
+        where: { userId: user.id },
+      });
 
       return {
-        id: user.id,
-        email: user.email,
-        role: user.role.name,
-        isVerified: user.isVerified,
+        user: {
+          id: user.id,
+          email: user.email,
+          isVerified: true,
+          role: user.role.name,
+        },
         pharmacy,
       };
     }
 
     return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      isVerified: user.isVerified,
+      user: {
+        id: user.id,
+        email: user.email,
+        isVerified: user.isVerified,
+        role: user.role.name,
+      },
     };
   }
 
   async verifyAccount({ id, code }: { id: string; code: number }) {
-    const user = await this.userRepository.findOne({ id });
+    const user = await this.verifyUser(id);
 
-    if (!user || !user.email) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('User not found');
 
     if (!user.codeVerificationExpiresAt) {
       throw new ForbiddenException('Verification expiration not set');
@@ -203,9 +213,12 @@ export class AuthService {
     if (user.codeVerification !== code)
       throw new ForbiddenException('Invalid code');
 
-    await this.userRepository.update(user.id, {
-      isVerified: true,
-      codeVerification: null,
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        codeVerification: null,
+      },
     });
 
     await sendEmail({
@@ -216,7 +229,7 @@ export class AuthService {
   }
 
   async resendCodeVerification(id: string) {
-    const user = await this.userRepository.findOne({ id });
+    const user = await this.verifyUser(id);
 
     if (!user || !user.email)
       throw new NotFoundException('User not found or email not set');
@@ -243,9 +256,12 @@ export class AuthService {
     const { codeVerification, codeVerificationExpiresAt } =
       this.generateCodeVerification();
 
-    await this.userRepository.update(id, {
-      codeVerification,
-      codeVerificationExpiresAt,
+    await prisma.user.update({
+      where: { id },
+      data: {
+        codeVerification,
+        codeVerificationExpiresAt,
+      },
     });
 
     await sendEmail({
@@ -258,14 +274,17 @@ export class AuthService {
   }
 
   async refreshAccessToken(id: string) {
-    const user = await this.userRepository.findOne({ id });
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: { role: true },
+    });
 
     if (!user || !user.email) throw new NotFoundException('User not found');
 
     const { accessToken } = generateToken({
       id: user.id,
-      email: user.email,
       role: user.role.name,
+      email: user.email,
     });
 
     return {
@@ -273,45 +292,34 @@ export class AuthService {
     };
   }
 
-  async validateOrCreateUser(
-    profile: any,
-    accessToken: string,
-    refreshToken: string
-  ) {
-    const provider = 'google';
-    const providerAccountId = profile.id;
-
-    const account =
-      await this.accountRepository.findByProviderAndProviderAccountId(
-        provider,
-        providerAccountId
-      );
-
-    if (account) return account.user;
-
-    const email = profile.emails?.[0]?.value;
-
-    const userExists = await this.userRepository.findOne({
-      email,
+  async validateOrCreateUser(email: string, provider: AuthProvider) {
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
     });
 
-    if (userExists) throw new ConflictException('Email already registered');
+    if (existingUser) {
+      if (existingUser.provider === provider) {
+        return existingUser;
+      }
 
-    const roleData = await this.roleRepository.findByName('USER');
+      throw new ConflictException(
+        'Email already registered with another provider'
+      );
+    }
+
+    const roleData = await prisma.role.findUnique({
+      where: { name: Role.USER },
+    });
 
     if (!roleData) throw new NotFoundException('Role not found');
 
-    const user = await this.userRepository.createWithAccount({
-      email,
-      roleId: roleData.id,
-      account: {
+    return prisma.user.create({
+      data: {
+        email,
         provider,
-        providerAccountId,
-        accessToken,
-        refreshToken,
+        roleId: roleData.id,
+        isVerified: true,
       },
     });
-
-    return user;
   }
 }
